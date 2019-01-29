@@ -29,10 +29,12 @@ reactivity = [0.0] #vector to store previous ARC insertion reactivities calculat
 #####
 
 from csv import reader
+from glob import glob
 from os import chdir
 from os import getcwd
 from os import listdir
 from os import mkdir
+from os import path
 from os import remove
 from shutil import copy
 from shutil import copyfile
@@ -178,7 +180,7 @@ while step < maxsteps:
     
     #put new end time and restart file into SAM input
     fsam.write('end_time = '+str(time[-1])+'\n')
-    fsam.write('restart_file_base = rf_cp/0001')#+'{:04d}'.format(step-1)+'\n')
+    fsam.write('restart_file_base = '+max(glob('rf_cp/*'),key=path.getctime).split('.')[0])#+'{:04d}'.format(step-1)+'\n')
     fsam.write('[]\n')
     fsam.write('\n')
     
