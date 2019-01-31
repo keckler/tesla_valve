@@ -50,6 +50,7 @@ from sys import argv
 #sam_exec = 'sam-opt'
 #sas_post_processor = '/Users/keckler/Documents/work/codes/mini-5.1/plot/PRIMAR4toCSV-Darwin.x'
 sam_restart_template = 'restarter_sam_tmp.i'
+sam_cumulative_csv = 'sam_cumulative_csv.csv'
 sas_restart_template = 'restarter_sas_tmp.inp'
 sas_cumulative_csv = 'sas_cumulative_csv.csv'
 
@@ -100,9 +101,10 @@ p.wait()
 print('done')
 
 #extract liquid column height
+fsamcsv = open(sam_cumulative_csv,'w')
 with open('original_sam_csv.csv') as sam_results:
     for row in sam_results:
-        pass
+        fsamcsv.write(row)
 last_line = row
 liquid_height = float(last_line.split(',')[-12])
 
@@ -206,11 +208,12 @@ while step < maxsteps:
     p.wait()
     print('done')
     
-    #extract liquid column height
+    #extract liquid column height and write all results to cumulative csv file
     with open('restarter_sam_csv.csv') as sam_results:
         for row in sam_results:
             pass
     last_line = row
+    fsamcsv.write(last_line)
     liquid_height = float(last_line.split(',')[-12])
     
     #clean up
