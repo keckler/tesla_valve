@@ -236,3 +236,4 @@ while step < maxsteps:
     print('outlet temp = '+str(outlet_temp[-1])+'K, reactivity = '+str(reactivity[-1]))
 
 fsascsv.close()
+fsamcsv.close()
