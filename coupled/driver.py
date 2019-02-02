@@ -53,6 +53,7 @@ sam_restart_template = 'restarter_sam_tmp.i'
 sam_cumulative_csv = 'sam_cumulative_csv.csv'
 sas_restart_template = 'restarter_sas_tmp.inp'
 sas_cumulative_csv = 'sas_cumulative_csv.csv'
+sas_core_csv = 'sas_core_csv.csv'
 
 #####
 #print header
@@ -79,9 +80,16 @@ with open('PRIMAR4.csv') as sas_results:
     for row in sas_results:
         fsascsv.write(row)
 last_line = row
+
 step = int(last_line.split(',')[0])
 time.append(float(last_line.split(',')[3]))
 outlet_temp.append(float(last_line.split(',')[4]))
+
+fcorecsv = open(sas_core_csv, 'w')
+with open('WholeCore.csv') as core_results:
+    for row in core_results:
+        fcorecsv.write(row)
+
 print('post processed')
 
 #clean up
@@ -157,11 +165,19 @@ while step < maxsteps:
     p.wait()
     with open('PRIMAR4.csv') as sas_results:
         for row in sas_results:
-            fsascsv.write(row)
+            pass
     last_line = row
+    fsascsv.write(last_line)
+    
     step = int(last_line.split(',')[0])
     time.append(float(last_line.split(',')[3]))
     outlet_temp.append(float(last_line.split(',')[4]))
+
+    with open('WholeCore.csv') as sas_results:
+        for row in sas_results:
+            pass
+    fcorecsv.write(row)
+
     print('post processed')
     
     #clean up
@@ -237,3 +253,4 @@ while step < maxsteps:
 
 fsascsv.close()
 fsamcsv.close()
+fcorecsv.close()
