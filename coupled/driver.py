@@ -99,7 +99,9 @@ try:
 except (OSError):
     pass
 remove('PRIMAR4.dat')
+remove('PRIMAR4.csv')
 remove('CHANNEL.dat')
+remove('WholeCore.csv')
 move('RESTART.dat','RESTART.bin')
 
 #run sam once
@@ -118,6 +120,7 @@ liquid_height = float(last_line.split(',')[-12])
 
 #clean up
 remove('original_sam_out_displaced.e')
+remove('original_sam_csv.csv')
 
 #print just finished time step
 print('completed step = '+str(step)+', time = '+str(time[-1]))
@@ -187,7 +190,9 @@ while step < maxsteps:
     except (OSError):
         pass
     remove('PRIMAR4.dat')
+    remove('PRIMAR4.csv')
     remove('CHANNEL.dat')
+    remove('WholeCore.csv')
     move('RESTART.dat','RESTART.bin')
     
     #---sam---
@@ -234,6 +239,7 @@ while step < maxsteps:
     
     #clean up
     remove('restarter_sam_out_displaced.e')
+    remove('restarter_sam_csv.csv')
     
     #print just finished time step
     print('completed step = '+str(step)+', time = '+str(time[-1]))
@@ -246,8 +252,6 @@ while step < maxsteps:
         reactivity.append((liquid_height - nominal_height) / (max_height - nominal_height) * max_reactivity)
     else:
         reactivity.append(max_reactivity)
-
-    #reactivity = -0.1
     
     print('outlet temp = '+str(outlet_temp[-1])+'K, reactivity = '+str(reactivity[-1]))
 
