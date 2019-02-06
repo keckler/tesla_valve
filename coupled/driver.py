@@ -47,6 +47,7 @@ from sys import argv
 
 from cleanupsas import cleanupsas
 from cleanupsam import cleanupsam
+from liquid_height_to_reactivity import liquid_height_to_reactivity
 
 #####
 #locations of files
@@ -117,16 +118,7 @@ cleanupsam()
 print('completed step = '+str(step)+', time = '+str(time[-1]))
 print('\n')
 
-#convert liquid height to reactivity
-if liquid_height < reactivity_curve_position[0]:
-    reactivity.append(0.0)
-elif liquid_height < reactivity_curve_position[-1]:
-    for i in range(1,len(reactivity_curve_position)):
-        if liquid_height < reactivity_curve_position[i]:
-            reactivity.append((liquid_height - reactivity_curve_position[i-1]) / (reactivity_curve_position[i] - reactivity_curve_position[i-1]) * (reactivity_curve[i] - reactivity_curve[i-1]) + reactivity_curve[i-1])
-            break
-else:
-    reactivity.append(reactivity_curve[-1])
+reactivity = liquid_height_to_reactivity(liquid_height, reactivity_curve_position, reactivity_curve, reactivity)
 
 print('outlet temp = '+str(outlet_temp[-1])+'K, liquid height = '+str(liquid_height)+'m, reactivity = '+str(reactivity[-1])+'$')
 
@@ -227,16 +219,7 @@ while step < maxsteps:
     print('completed step = '+str(step)+', time = '+str(time[-1]))
     print('\n')
     
-    #convert liquid height to reactivity
-    if liquid_height < reactivity_curve_position[0]:
-        reactivity.append(0.0)
-    elif liquid_height < reactivity_curve_position[-1]:
-        for i in range(1,len(reactivity_curve_position)):
-            if liquid_height < reactivity_curve_position[i]:
-                reactivity.append((liquid_height - reactivity_curve_position[i-1]) / (reactivity_curve_position[i] - reactivity_curve_position[i-1]) * (reactivity_curve[i] - reactivity_curve[i-1]) + reactivity_curve[i-1])
-                break
-    else:
-        reactivity.append(reactivity_curve[-1])
+    reactivity = liquid_height_to_reactivity(liquid_height, reactivity_curve_position, reactivity_curve, reactivity)
     
     print('outlet temp = '+str(outlet_temp[-1])+'K, liquid height = '+str(liquid_height)+'m, reactivity = '+str(reactivity[-1])+'$')
 
