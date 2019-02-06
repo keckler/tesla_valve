@@ -10,11 +10,16 @@
 #####
 
 maxsteps = 10000
-nominal_height = 0.005
-max_height = 3.0
-max_reactivity = -1
+nominal_height = 0.005 #resting height of lithium column during steady-state
+below_core_height = 0.2 #temperature increase needed for ARC system to reach bottom of active core
+reactivity_curve_position = [0,    0.11808,    0.17712,    0.23616,    0.29684,    0.35588,    0.41492,    0.47396,    0.533,    0.59204,    0.65108,    0.71012,    0.76916,    0.82984,    0.88888,    0.94792,    1.00696,    1.066] #height of lithium column in active core
+reactivity_curve = [0,    -0.0084,    -0.0392,    -0.0843,    -0.1423,    -0.2114,    -0.2894,    -0.3739,    -0.4622,    -0.5515,    -0.6392,    -0.7223,    -0.7983,    -0.8648,    -0.9198,    -0.9615,    -0.9886,    -1] #reactivity in dollars
 dt = 0.01
-initial_outlet_temp = 783
+initial_outlet_temp = 796
+
+#adjust the reactivity curve positions for the region below the core
+for i in range(0,len(reactivity_curve_position)):
+    reactivity_curve_position[i] = reactivity_curve_position[i] + below_core_height - nominal_height
 
 #####
 #initializations
@@ -35,20 +40,18 @@ from os import getcwd
 from os import listdir
 from os import mkdir
 from os import path
-from os import remove
 from shutil import copy
 from shutil import copyfile
-from shutil import move
 from subprocess import Popen
 from sys import argv
+
+from cleanupsas import cleanupsas
+from cleanupsam import cleanupsam
 
 #####
 #locations of files
 #####
 
-#sas_exec = '/Users/keckler/Documents/work/codes/mini-5.1/bin/mini-5.1-Darwin.x'
-#sam_exec = 'sam-opt'
-#sas_post_processor = '/Users/keckler/Documents/work/codes/mini-5.1/plot/PRIMAR4toCSV-Darwin.x'
 sam_restart_template = 'restarter_sam_tmp.i'
 sam_cumulative_csv = 'sam_cumulative_csv.csv'
 sas_restart_template = 'restarter_sas_tmp.inp'
@@ -92,17 +95,7 @@ with open('WholeCore.csv') as core_results:
 
 print('post processed')
 
-#clean up
-try:
-    remove('SAS.log')
-    remove('SAS.pid')
-except (OSError):
-    pass
-remove('PRIMAR4.dat')
-remove('PRIMAR4.csv')
-remove('CHANNEL.dat')
-remove('WholeCore.csv')
-move('RESTART.dat','RESTART.bin')
+cleanupsas()
 
 #run sam once
 print('running sam...')
@@ -118,23 +111,24 @@ with open('original_sam_csv.csv') as sam_results:
 last_line = row
 liquid_height = float(last_line.split(',')[-12])
 
-#clean up
-remove('original_sam_out_displaced.e')
-remove('original_sam_csv.csv')
+cleanupsam()
 
 #print just finished time step
 print('completed step = '+str(step)+', time = '+str(time[-1]))
 print('\n')
 
 #convert liquid height to reactivity
-if liquid_height < nominal_height:
+if liquid_height < reactivity_curve_position[0]:
     reactivity.append(0.0)
-elif liquid_height < max_height:
-    reactivity.append((liquid_height - nominal_height) / (max_height - nominal_height) * max_reactivity)
+elif liquid_height < reactivity_curve_position[-1]:
+    for i in range(1,len(reactivity_curve_position)):
+        if liquid_height < reactivity_curve_position[i]:
+            reactivity.append((liquid_height - reactivity_curve_position[i-1]) / (reactivity_curve_position[i] - reactivity_curve_position[i-1]) * (reactivity_curve[i] - reactivity_curve[i-1]) + reactivity_curve[i-1])
+            break
 else:
-    reactivity.append(max_reactivity)
+    reactivity.append(reactivity_curve[-1])
 
-print('outlet temp = '+str(outlet_temp[-1])+'K, reactivity = '+str(reactivity[-1]))
+print('outlet temp = '+str(outlet_temp[-1])+'K, liquid height = '+str(liquid_height)+'m, reactivity = '+str(reactivity[-1])+'$')
 
 #####
 #run sas and sam iteratively
@@ -183,17 +177,7 @@ while step < maxsteps:
 
     print('post processed')
     
-    #clean up
-    try:
-        remove('SAS.log')
-        remove('SAS.pid')
-    except (OSError):
-        pass
-    remove('PRIMAR4.dat')
-    remove('PRIMAR4.csv')
-    remove('CHANNEL.dat')
-    remove('WholeCore.csv')
-    move('RESTART.dat','RESTART.bin')
+    cleanupsas()
     
     #---sam---
     
@@ -237,23 +221,24 @@ while step < maxsteps:
     fsamcsv.write(last_line)
     liquid_height = float(last_line.split(',')[-12])
     
-    #clean up
-    remove('restarter_sam_out_displaced.e')
-    remove('restarter_sam_csv.csv')
+    cleanupsam()
     
     #print just finished time step
     print('completed step = '+str(step)+', time = '+str(time[-1]))
     print('\n')
     
     #convert liquid height to reactivity
-    if liquid_height < nominal_height:
+    if liquid_height < reactivity_curve_position[0]:
         reactivity.append(0.0)
-    elif liquid_height < max_height:
-        reactivity.append((liquid_height - nominal_height) / (max_height - nominal_height) * max_reactivity)
+    elif liquid_height < reactivity_curve_position[-1]:
+        for i in range(1,len(reactivity_curve_position)):
+            if liquid_height < reactivity_curve_position[i]:
+                reactivity.append((liquid_height - reactivity_curve_position[i-1]) / (reactivity_curve_position[i] - reactivity_curve_position[i-1]) * (reactivity_curve[i] - reactivity_curve[i-1]) + reactivity_curve[i-1])
+                break
     else:
-        reactivity.append(max_reactivity)
+        reactivity.append(reactivity_curve[-1])
     
-    print('outlet temp = '+str(outlet_temp[-1])+'K, reactivity = '+str(reactivity[-1]))
+    print('outlet temp = '+str(outlet_temp[-1])+'K, liquid height = '+str(liquid_height)+'m, reactivity = '+str(reactivity[-1])+'$')
 
 fsascsv.close()
 fsamcsv.close()
