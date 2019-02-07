@@ -34,12 +34,10 @@ reactivity = [0.0] #vector to store previous ARC insertion reactivities calculat
 #####
 
 from csv import reader
-from glob import glob
 from os import chdir
 from os import getcwd
 from os import listdir
 from os import mkdir
-from os import path
 from shutil import copy
 from shutil import copyfile
 from subprocess import Popen
@@ -48,6 +46,9 @@ from sys import argv
 from cleanupsas import cleanupsas
 from cleanupsam import cleanupsam
 from liquid_height_to_reactivity import liquid_height_to_reactivity
+from write_sas_restart import write_sas_restart
+from extract_sas_results import extract_sas_results
+from write_sam_restart import write_sam_restart
 
 #####
 #locations of files
@@ -80,20 +81,8 @@ print('done')
 p = Popen(['./post_process_sas.sh'])
 p.wait()
 fsascsv = open(sas_cumulative_csv, 'w')
-with open('PRIMAR4.csv') as sas_results:
-    for row in sas_results:
-        fsascsv.write(row)
-last_line = row
-
-step = int(last_line.split(',')[0])
-time.append(float(last_line.split(',')[3]))
-outlet_temp.append(float(last_line.split(',')[4]))
-
 fcorecsv = open(sas_core_csv, 'w')
-with open('WholeCore.csv') as core_results:
-    for row in core_results:
-        fcorecsv.write(row)
-
+[step,time,outlet_temp] = extract_sas_results(fsascsv,time,outlet_temp,fcorecsv)
 print('post processed')
 
 cleanupsas()
@@ -131,16 +120,7 @@ while step < maxsteps:
     #open sas restart file
     copy(sas_restart_template, 'restarter.inp')
     fsas = open('restarter.inp', 'a')
-    
-    #edit sas restart file
-    fsas.write('INPCOM     1     0     1\n')
-    fsas.write('    11     1'+str(step+1)+'\n')
-    fsas.write('    -1\n')
-    fsas.write('POWINA    12     1     1\n')
-    fsas.write('    29     2'+'{:>12.5e}'.format(reactivity[-2])+'{:>12.5e}'.format(reactivity[-1])+'\n')
-    fsas.write('    49     2'+'{:>12.5e}'.format(time[-1])+'{:>12.5e}'.format(time[-1]+dt)+'\n')
-    fsas.write('    -1\n')
-    fsas.write('ENDJOB    -1\n')
+    write_sas_restart(fsas,step,reactivity,time,dt)
     fsas.close()
     
     #run restart
@@ -152,21 +132,7 @@ while step < maxsteps:
     #extract core outlet temp and save sas results to new csv file
     p = Popen(['./post_process_sas.sh'])
     p.wait()
-    with open('PRIMAR4.csv') as sas_results:
-        for row in sas_results:
-            pass
-    last_line = row
-    fsascsv.write(last_line)
-    
-    step = int(last_line.split(',')[0])
-    time.append(float(last_line.split(',')[3]))
-    outlet_temp.append(float(last_line.split(',')[4]))
-
-    with open('WholeCore.csv') as sas_results:
-        for row in sas_results:
-            pass
-    fcorecsv.write(row)
-
+    [step,time,outlet_temp] = extract_sas_results(fsascsv,time,outlet_temp,fcorecsv)
     print('post processed')
     
     cleanupsas()
@@ -176,27 +142,7 @@ while step < maxsteps:
     #open sam input file
     copy(sam_restart_template, 'restarter_sam.i')
     fsam = open('restarter_sam.i','a')
-    
-    #put new end time and restart file into SAM input
-    fsam.write('end_time = '+str(time[-1])+'\n')
-    fsam.write('restart_file_base = '+max(glob('rf_cp/*'),key=path.getctime).split('.')[0])#+'{:04d}'.format(step-1)+'\n')
-    fsam.write('[]\n')
-    fsam.write('\n')
-    
-    #put outlet temp into sam
-    fsam.write('[Functions]\n')
-    fsam.write('[./heat_fcn]\n')
-    fsam.write('type = PiecewiseLinear\n')
-    fsam.write("x = '")
-    for t in time:
-        fsam.write(' '+str(t))
-    fsam.write("'\n")
-    fsam.write("y = '")
-    for t in outlet_temp:
-        fsam.write(' '+str(t))
-    fsam.write("'\n")
-    fsam.write("[../]\n")
-    fsam.write('[]')
+    write_sam_restart(fsam,time,outlet_temp)
     fsam.close()
     
     #run sam once
