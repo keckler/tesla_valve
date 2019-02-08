@@ -1,7 +1,11 @@
-def write_sam_restart(fsam,time,outlet_temp):
+def write_sam_restart(time,outlet_temp,sam_restart_template):
 
     from glob import glob
     from os import path
+    from shutil import copy
+
+    copy(sam_restart_template, 'restarter_sam.i')
+    fsam = open('restarter_sam.i','a')
 
     #put new end time and restart file into SAM input
     fsam.write('end_time = '+str(time[-1])+'\n')
@@ -23,3 +27,5 @@ def write_sam_restart(fsam,time,outlet_temp):
     fsam.write("'\n")
     fsam.write("[../]\n")
     fsam.write('[]')
+
+    fsam.close()

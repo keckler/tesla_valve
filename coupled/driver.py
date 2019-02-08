@@ -16,6 +16,7 @@ reactivity_curve_position = [0,    0.11808,    0.17712,    0.23616,    0.29684, 
 reactivity_curve = [0,    -0.0084,    -0.0392,    -0.0843,    -0.1423,    -0.2114,    -0.2894,    -0.3739,    -0.4622,    -0.5515,    -0.6392,    -0.7223,    -0.7983,    -0.8648,    -0.9198,    -0.9615,    -0.9886,    -1] #reactivity in dollars
 dt = 0.01
 initial_outlet_temp = 796
+tau0 = 1.3
 
 #adjust the reactivity curve positions for the region below the core
 for i in range(0,len(reactivity_curve_position)):
@@ -28,20 +29,14 @@ for i in range(0,len(reactivity_curve_position)):
 time = [0.0] #vector to store previous time steps
 outlet_temp = [initial_outlet_temp] #vector to store previous outlet temps
 reactivity = [0.0] #vector to store previous ARC insertion reactivities calculated by SAM
+flow = [] #vector to store flow rates with time
 
 #####
 #imports
 #####
 
-from csv import reader
-from os import chdir
-from os import getcwd
-from os import listdir
-from os import mkdir
 from shutil import copy
-from shutil import copyfile
 from subprocess import Popen
-from sys import argv
 
 from cleanupsas import cleanupsas
 from cleanupsam import cleanupsam
@@ -49,6 +44,10 @@ from liquid_height_to_reactivity import liquid_height_to_reactivity
 from write_sas_restart import write_sas_restart
 from extract_sas_results import extract_sas_results
 from write_sam_restart import write_sam_restart
+from normalized_flow_to_tau import normalized_flow_to_tau
+from tau_to_Hw import tau_to_Hw
+from run_sam import run_sam
+from extract_sam_results import extract_sam_results
 
 #####
 #locations of files
@@ -82,34 +81,25 @@ p = Popen(['./post_process_sas.sh'])
 p.wait()
 fsascsv = open(sas_cumulative_csv, 'w')
 fcorecsv = open(sas_core_csv, 'w')
-[step,time,outlet_temp] = extract_sas_results(fsascsv,time,outlet_temp,fcorecsv)
+[step,time,outlet_temp,flow] = extract_sas_results(fsascsv,time,outlet_temp,fcorecsv,flow)
 print('post processed')
 
 cleanupsas()
 
 #run sam once
-print('running sam...')
-p = Popen(['./run_sam_original.sh'])
-p.wait()
-print('done')
+run_sam('original')
 
-#extract liquid column height
+#extract sam results
 fsamcsv = open(sam_cumulative_csv,'w')
-with open('original_sam_csv.csv') as sam_results:
-    for row in sam_results:
-        fsamcsv.write(row)
-last_line = row
-liquid_height = float(last_line.split(',')[-12])
+liquid_height = extract_sam_results(fsamcsv,'original')
 
 cleanupsam()
-
-#print just finished time step
-print('completed step = '+str(step)+', time = '+str(time[-1]))
-print('\n')
 
 reactivity = liquid_height_to_reactivity(liquid_height, reactivity_curve_position, reactivity_curve, reactivity)
 
 print('outlet temp = '+str(outlet_temp[-1])+'K, liquid height = '+str(liquid_height)+'m, reactivity = '+str(reactivity[-1])+'$')
+print('completed step = '+str(step)+', time = '+str(time[-1]))
+print('\n')
 
 #####
 #run sas and sam iteratively
@@ -129,45 +119,32 @@ while step < maxsteps:
     p.wait()
     print('done')
     
-    #extract core outlet temp and save sas results to new csv file
+    #extract results
     p = Popen(['./post_process_sas.sh'])
     p.wait()
-    [step,time,outlet_temp] = extract_sas_results(fsascsv,time,outlet_temp,fcorecsv)
+    [step,time,outlet_temp,flow] = extract_sas_results(fsascsv,time,outlet_temp,fcorecsv,flow)
+    tau = normalized_flow_to_tau(flow[-1]/flow[0],tau0)
+    Hw = tau_to_Hw(tau)
     print('post processed')
     
     cleanupsas()
     
     #---sam---
     
-    #open sam input file
-    copy(sam_restart_template, 'restarter_sam.i')
-    fsam = open('restarter_sam.i','a')
-    write_sam_restart(fsam,time,outlet_temp)
-    fsam.close()
+    write_sam_restart(time,outlet_temp,sam_restart_template)
     
-    #run sam once
-    print('running sam...')
-    p = Popen(['./run_sam_restart.sh'])
-    p.wait()
-    print('done')
+    run_sam('restart')
     
-    #extract liquid column height and write all results to cumulative csv file
-    with open('restarter_sam_csv.csv') as sam_results:
-        for row in sam_results:
-            pass
-    last_line = row
-    fsamcsv.write(last_line)
-    liquid_height = float(last_line.split(',')[-12])
+    liquid_height = extract_sam_results(fsamcsv,'restart')
     
     cleanupsam()
-    
-    #print just finished time step
-    print('completed step = '+str(step)+', time = '+str(time[-1]))
-    print('\n')
-    
+
     reactivity = liquid_height_to_reactivity(liquid_height, reactivity_curve_position, reactivity_curve, reactivity)
     
     print('outlet temp = '+str(outlet_temp[-1])+'K, liquid height = '+str(liquid_height)+'m, reactivity = '+str(reactivity[-1])+'$')
+    print('normalized_flow = '+str(flow[-1]/flow[0])+', tau = '+str(tau)+'s, Hw = '+str(Hw))
+    print('completed step = '+str(step)+', time = '+str(time[-1]))
+    print('\n')
 
 fsascsv.close()
 fsamcsv.close()
