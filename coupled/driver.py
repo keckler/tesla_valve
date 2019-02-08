@@ -131,7 +131,7 @@ while step < maxsteps:
     
     #---sam---
     
-    write_sam_restart(time,outlet_temp,sam_restart_template)
+    write_sam_restart(time,outlet_temp,sam_restart_template,Hw)
     
     run_sam('restart')
     
